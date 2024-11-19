@@ -96,7 +96,7 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 
 ##@ Build
 
-PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
+PLATFORMS ?= linux/arm64,linux/amd64
 CSIDRIVER_IMG ?= ${REGISTRY}/listener-csi-driver:$(VERSION)
 
 # csi build variables
@@ -267,8 +267,32 @@ mv $(1) $(1)-$(3) ;\
 ln -sf $(1)-$(3) $(1)
 endef
 
+##@ Chainsaw-E2E
+
+# Tool Versions
+KINDTEST_K8S_VERSION ?= 1.26.15
+CHAINSAW_VERSION ?= v0.2.11
+
+KIND_IMAGE ?= kindest/node:v${KINDTEST_K8S_VERSION}
+KIND_KUBECONFIG ?= ./kind-kubeconfig-$(KINDTEST_K8S_VERSION)
+KIND_CLUSTER_NAME ?= ${PROJECT_NAME}-$(KINDTEST_K8S_VERSION)
+KIND_CONFIG ?= test/e2e/kind-config.yaml
+
 HELM_DEPENDS ?= commons-operator
 TEST_NAMESPACE = kubedoop-operators
+
+CHAINSAW = $(LOCALBIN)/chainsaw
+
+# Create a kind cluster
+.PHONY: kind-create
+kind-create: kind ## Create a kind cluster.
+	$(KIND) create cluster --config $(KIND_CONFIG) --image $(KIND_IMAGE) --name $(KIND_CLUSTER_NAME) --kubeconfig $(KIND_KUBECONFIG) --wait 120s
+
+.PHONY: kind-delete
+kind-delete: kind ## Delete a kind cluster.
+	$(KIND) delete cluster --name $(KIND_CLUSTER_NAME)
+
+## helm install
 
 .PHONY: helm-install-depends
 helm-install-depends: helm ## Install the helm chart depends.
@@ -287,28 +311,6 @@ ifneq ($(strip $(HELM_DEPENDS)),)
 		$(HELM) uninstall --namespace $(TEST_NAMESPACE) $$dep; \
 	done
 endif
-
-##@ Chainsaw-E2E
-
-# Tool Versions
-KINDTEST_K8S_VERSION ?= 1.26.15
-CHAINSAW_VERSION ?= v0.2.11
-
-KIND_IMAGE ?= kindest/node:v${KINDTEST_K8S_VERSION}
-KIND_KUBECONFIG ?= ./kind-kubeconfig-$(KINDTEST_K8S_VERSION)
-KIND_CLUSTER_NAME ?= ${PROJECT_NAME}-$(KINDTEST_K8S_VERSION)
-KIND_CONFIG ?= test/e2e/kind-config.yaml
-
-CHAINSAW = $(LOCALBIN)/chainsaw
-
-# Create a kind cluster
-.PHONY: kind-create
-kind-create: kind ## Create a kind cluster.
-	$(KIND) create cluster --config $(KIND_CONFIG) --image $(KIND_IMAGE) --name $(KIND_CLUSTER_NAME) --kubeconfig $(KIND_KUBECONFIG) --wait 120s
-
-.PHONY: kind-delete
-kind-delete: kind ## Delete a kind cluster.
-	$(KIND) delete cluster --name $(KIND_CLUSTER_NAME)
 
 # chainsaw
 
